@@ -43,17 +43,19 @@ jobs:
           latest_tag="${{ env.LATEST_TAG }}"
           if [ "$latest_tag" = "v0.0.0" ]; then
             # If no previous tag exists, use all commits
-            commits=$(git log --pretty=format:"- [%s] %b by @%an in #%P" | grep -v "^- \[$")
+            commits=$(git log --format="- [%s] by @%an in %h" | sed '/^$/d')
           else
             # Get commits since the latest tag
-            commits=$(git log $latest_tag..HEAD --pretty=format:"- [%s] %b by @%an in #%P" | grep -v "^- \[$")
+            commits=$(git log $latest_tag..HEAD --format="- [%s] by @%an in %h" | sed '/^$/d')
           fi
           
-          # Remove empty lines and format the PR numbers
-          formatted_commits=$(echo "$commits" | sed '/^$/d' | sed 's/ in #\([^ ]*\)/ in #\1/')
-          
-          # Create the release body with markdown formatting
-          echo "RELEASE_BODY=## What's Changed${formatted_commits}" >> $GITHUB_ENV
+          # Write to GITHUB_ENV with proper multiline handling
+          {
+            echo "RELEASE_BODY<<EOF"
+            echo "## What's Changed"
+            echo "$commits"
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Create new tag
         run: |
