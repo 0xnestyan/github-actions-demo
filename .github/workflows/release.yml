@@ -18,20 +18,22 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git describe --tags --abbrev=0 || echo "v.0.0.0")
+          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
 
       - name: Calculate new version
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          IFS='.' read -ra PARTS <<< "${latest_tag#v.}"
+          # Remove 'v' prefix and split into parts
+          version="${latest_tag#v}"
+          IFS='.' read -ra PARTS <<< "$version"
           major=${PARTS[0]}
           minor=${PARTS[1]}
           patch=${PARTS[2]:-0}
           # Bump minor version (modify as needed)
           minor=$((minor + 1))
-          new_version="v.${major}.${minor}.0"
+          new_version="v$major.$minor.0"
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
           echo "New version: $new_version"
 
@@ -39,7 +41,7 @@ jobs:
         id: generate_release_notes
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          if [ "$latest_tag" = "v.0.0.0" ]; then
+          if [ "$latest_tag" = "v0.0.0" ]; then
             # If no previous tag exists, use all commits
             commits=$(git log --pretty=format:"- [%s] %b by @%an in #%P" | grep -v "^- \[$")
           else
