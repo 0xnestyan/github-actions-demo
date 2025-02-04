@@ -26,7 +26,7 @@ jobs:
       - name: Calculate new version
         id: calculate_version
         run: |
-          latest_tag="${{ env.LATEST_TAG }}"
+          latest_tag="v.3.1.0"
           # Remove 'v' prefix and any extra dots, then split into parts
           version="${latest_tag#v}"
           version="${version#.}"  # Remove extra dot if present
