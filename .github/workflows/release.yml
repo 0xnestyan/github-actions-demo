@@ -1,10 +1,9 @@
 name: Version Bump and Release
 
 on:
-  push:
-    branches:
-      - main # Trigger on push to main
-  workflow_dispatch: # Allow manual triggering
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 jobs:
   bump_version:
@@ -13,7 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch full history to read previous tags
+          fetch-depth: 0
 
       - name: Get latest tag
         id: get_latest_tag
@@ -92,7 +91,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: success() # Only run if previous steps succeeded
+        if: success()
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_VERSION }}
