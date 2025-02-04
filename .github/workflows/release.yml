@@ -18,22 +18,32 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.1.0")
+          # Get all tags and sort by version number
+          latest_tag=$(git tag -l "v*" | sort -V | tail -n 1 || echo "v0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
 
       - name: Calculate new version
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          # Remove 'v' prefix and split into parts
+          # Remove 'v' prefix and any extra dots, then split into parts
           version="${latest_tag#v}"
+          version="${version#.}"  # Remove extra dot if present
           IFS='.' read -ra PARTS <<< "$version"
           major=${PARTS[0]}
           minor=${PARTS[1]:-0}
           patch=${PARTS[2]:-0}
+          
           # Bump minor version
           new_minor=$((minor + 1))
           new_version="v$major.$new_minor.0"
+          
+          # Check if the new version already exists
+          if git rev-parse "$new_version" >/dev/null 2>&1; then
+            echo "::error::Version $new_version already exists"
+            exit 1
+          fi
+          
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
           echo "New version: $new_version"
 
@@ -52,8 +62,9 @@ jobs:
             commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
           fi
           
-          # Extract version numbers for changelog link
+          # Extract version numbers for changelog link (remove any extra dots)
           latest_version="${latest_tag#v}"
+          latest_version="${latest_version#.}"
           new_version_number="${new_version#v}"
           
           # Write to GITHUB_ENV with proper multiline handling
@@ -70,10 +81,18 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ env.NEW_VERSION }}
-          git push origin ${{ env.NEW_VERSION }}
+          
+          # Double check the tag doesn't exist before creating it
+          if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            git tag ${{ env.NEW_VERSION }}
+            git push origin ${{ env.NEW_VERSION }}
+          else
+            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
+            exit 1
+          fi
 
       - name: Create GitHub Release
+        if: success() # Only run if previous steps succeeded
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_VERSION }}
