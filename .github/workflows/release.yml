@@ -18,7 +18,7 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
 
       - name: Calculate new version
@@ -29,11 +29,11 @@ jobs:
           version="${latest_tag#v}"
           IFS='.' read -ra PARTS <<< "$version"
           major=${PARTS[0]}
-          minor=${PARTS[1]}
+          minor=${PARTS[1]:-0}
           patch=${PARTS[2]:-0}
-          # Bump minor version (modify as needed)
-          minor=$((minor + 1))
-          new_version="v$major.$minor.0"
+          # Bump minor version
+          new_minor=$((minor + 1))
+          new_version="v$major.$new_minor.0"
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
           echo "New version: $new_version"
 
@@ -41,7 +41,10 @@ jobs:
         id: generate_release_notes
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          if [ "$latest_tag" = "v0.0.0" ]; then
+          new_version="${{ env.NEW_VERSION }}"
+          repo_url="https://github.com/${{ github.repository }}"
+          
+          if [ "$latest_tag" = "v0.1.0" ]; then
             # If no previous tag exists, use all commits
             commits=$(git log --format="- %s by @%an in %h" | sed '/^$/d')
           else
@@ -49,11 +52,17 @@ jobs:
             commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
           fi
           
+          # Extract version numbers for changelog link
+          latest_version="${latest_tag#v}"
+          new_version_number="${new_version#v}"
+          
           # Write to GITHUB_ENV with proper multiline handling
           {
             echo "RELEASE_BODY<<EOF"
             echo "## What's Changed"
             echo "$commits"
+            echo ""
+            echo "**Full Changelog**: [$latest_version...$new_version_number]($repo_url/compare/$latest_tag...$new_version)"
             echo "EOF"
           } >> $GITHUB_ENV
 
