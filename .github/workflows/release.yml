@@ -43,10 +43,10 @@ jobs:
           latest_tag="${{ env.LATEST_TAG }}"
           if [ "$latest_tag" = "v0.0.0" ]; then
             # If no previous tag exists, use all commits
-            commits=$(git log --format="- [%s] by @%an in %h" | sed '/^$/d')
+            commits=$(git log --format="- %s by @%an in %h" | sed '/^$/d')
           else
             # Get commits since the latest tag
-            commits=$(git log $latest_tag..HEAD --format="- [%s] by @%an in %h" | sed '/^$/d')
+            commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
           fi
           
           # Write to GITHUB_ENV with proper multiline handling
