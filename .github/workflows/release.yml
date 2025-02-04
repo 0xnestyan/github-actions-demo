@@ -1,9 +1,11 @@
 name: Version Bump and Release
+
 on:
   push:
     branches:
-      - main  # Trigger on push to main
-  workflow_dispatch:  # Allow manual triggering
+      - main # Trigger on push to main
+  workflow_dispatch: # Allow manual triggering
+
 jobs:
   bump_version:
     runs-on: ubuntu-latest
@@ -11,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch full history to read previous tags
+          fetch-depth: 0 # Fetch full history to read previous tags
 
       - name: Get latest tag
         id: get_latest_tag
@@ -39,32 +41,17 @@ jobs:
           latest_tag="${{ env.LATEST_TAG }}"
           if [ "$latest_tag" = "v.0.0.0" ]; then
             # If no previous tag exists, use all commits
-            commits=$(git log --pretty=format:"%h %s by %an in #%d" | sed 's/, / /g')
+            commits=$(git log --pretty=format:"- [%s] %b by @%an in #%P" | grep -v "^- \[$")
           else
             # Get commits since the latest tag
-            commits=$(git log $latest_tag..HEAD --pretty=format:"%h %s by %an in #%d" | sed 's/, / /g')
+            commits=$(git log $latest_tag..HEAD --pretty=format:"- [%s] %b by @%an in #%P" | grep -v "^- \[$")
           fi
-          # Count the number of commits
-          commit_count=$(echo "$commits" | wc -l)
-          # Format the commits into a markdown list
-          formatted_commits=$(echo "$commits" | awk '{print "- " $0}')
-          # Get the current date and calculate the days since the latest tag
-          current_date=$(date +%s)
-          if [ "$latest_tag" != "v.0.0.0" ]; then
-            tag_date=$(git log -1 --format=%at $latest_tag)
-            days_since_release=$(( (current_date - tag_date) / 86400 ))
-          else
-            days_since_release=0
-          fi
-          # Prepare the release body
-          release_body="v.${{ env.NEW_VERSION#v. }} Latest\n\n"
-          release_body+="@the-core-bot the-core-bot released this $days_since_release days ago\n"
-          release_body+="· $commit_count commits to development since this release\n"
-          release_body+=" ${{ env.NEW_VERSION#v. }}\n"
-          release_body+=" $(git rev-parse --short HEAD)\n"
-          release_body+="## What's Changed\n$formatted_commits\n"
-          release_body+="Full Changelog: $latest_tag...${{ env.NEW_VERSION}}"
-          echo "RELEASE_BODY=$release_body" >> $GITHUB_ENV
+          
+          # Remove empty lines and format the PR numbers
+          formatted_commits=$(echo "$commits" | sed '/^$/d' | sed 's/ in #\([^ ]*\)/ in #\1/')
+          
+          # Create the release body with markdown formatting
+          echo "RELEASE_BODY=## What's Changed${formatted_commits}" >> $GITHUB_ENV
 
       - name: Create new tag
         run: |
