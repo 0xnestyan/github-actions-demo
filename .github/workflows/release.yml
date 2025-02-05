@@ -33,7 +33,7 @@ jobs:
 
           new_minor=$((minor + 1))
           new_version="$major.$new_minor.0"
-          release_name="v.$new_version"
+          release_name="v.$new_version"  # Ensures correct release name
 
           # Ensure new version doesn't already exist
           if git tag -l | grep -q "^${new_version}$"; then
@@ -43,7 +43,7 @@ jobs:
 
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
           echo "RELEASE_NAME=$release_name" >> $GITHUB_ENV
-          echo "New version: $new_version"
+          echo "New version (tag): $new_version"
           echo "Release name: $release_name"
 
       - name: Generate release notes from commits
@@ -81,7 +81,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_VERSION }}
-          name: ${{ env.RELEASE_NAME }}
+          name: ${{ env.RELEASE_NAME }}  # This ensures 'v.3.5.0'
           body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: false
