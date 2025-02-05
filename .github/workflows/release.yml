@@ -87,10 +87,10 @@ jobs:
           
           # Double check the tag doesn't exist before creating it
           if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            git tag ${{ env.NEW_VERSION }}
-            git push origin ${{ env.NEW_VERSION }}
+            git tag ${{ env.NEW_VERSION_TAG }}
+            git push origin ${{ env.NEW_VERSION_TAG }}
           else
-            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
+            echo "Tag ${{ env.NEW_VERSION_TAG }} already exists, skipping tag creation"
             exit 1
           fi
 
