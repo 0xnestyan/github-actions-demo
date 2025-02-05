@@ -37,7 +37,8 @@ jobs:
           
           # Bump minor version
           new_minor=$((minor + 1))
-          new_version="v$major.$new_minor.0"
+          new_version="v.$major.$new_minor.0"
+          new_version_tag="$major.$new_minor.0"
           
           # Check if the new version already exists
           if git rev-parse "$new_version" >/dev/null 2>&1; then
@@ -46,6 +47,7 @@ jobs:
           fi
           
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
+          echo "NEW_VERSION_TAG=$new_version_tag" >> $GITHUB_ENV
           echo "New version: $new_version"
 
       - name: Generate release notes from commits
@@ -96,7 +98,7 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.NEW_VERSION }}
+          tag_name: ${{ env.NEW_VERSION_TAG }}
           name: ${{ env.NEW_VERSION }}
           body: ${{ env.RELEASE_BODY }}
           draft: false
