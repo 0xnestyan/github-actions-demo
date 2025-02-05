@@ -13,12 +13,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          ref: development
 
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git tag -l --sort=-v:refname | head -n 1 || echo "0.1.0")
+          # Get all tags (both with and without v prefix)
+          latest_tag=$(git tag -l | sort -V | tail -n 1 || echo "0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
           echo "Latest tag: $latest_tag"
 
@@ -26,25 +27,24 @@ jobs:
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
+          # Split into parts without assuming v prefix
           IFS='.' read -ra PARTS <<< "$latest_tag"
           major=${PARTS[0]}
           minor=${PARTS[1]:-0}
           patch=${PARTS[2]:-0}
 
+          # Bump minor version
           new_minor=$((minor + 1))
           new_version="$major.$new_minor.0"
-          release_name="v.$new_version"  # Ensures correct release name
 
-          # Ensure new version doesn't already exist
-          if git tag -l | grep -q "^${new_version}$"; then
+          # Check if the new version already exists
+          if git rev-parse "$new_version" >/dev/null 2>&1; then
             echo "::error::Version $new_version already exists"
             exit 1
           fi
 
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
-          echo "RELEASE_NAME=$release_name" >> $GITHUB_ENV
-          echo "New version (tag): $new_version"
-          echo "Release name: $release_name"
+          echo "New version: $new_version"
 
       - name: Generate release notes from commits
         id: generate_release_notes
@@ -64,7 +64,7 @@ jobs:
             echo "## What's Changed"
             echo "$commits"
             echo ""
-            echo "[Full Changelog]($repo_url/compare/$latest_tag...$new_version)"
+            echo "Full Changelog: $latest_tag...$new_version"
             echo "EOF"
           } >> $GITHUB_ENV
 
@@ -73,15 +73,20 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git tag ${{ env.NEW_VERSION }}
-          git push origin ${{ env.NEW_VERSION }}
+          if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            git tag ${{ env.NEW_VERSION }}
+            git push origin ${{ env.NEW_VERSION }}
+          else
+            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_VERSION }}
-          name: ${{ env.RELEASE_NAME }}  # This ensures 'v.3.5.0'
+          name: "v.${{ env.NEW_VERSION }}"
           body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: false
