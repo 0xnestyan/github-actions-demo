@@ -18,7 +18,7 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git tag -l | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || echo "0.1.0")
+          latest_tag=$(git tag -l | sort -V | tail -n 1 || echo "0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
           echo "Latest tag: $latest_tag"
 
@@ -26,24 +26,19 @@ jobs:
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          # Ensure we're working with a valid version number
-          if [[ ! "$latest_tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            latest_tag="0.1.0"
-          fi
-          
           IFS='.' read -ra PARTS <<< "$latest_tag"
           major=${PARTS[0]}
           minor=${PARTS[1]:-0}
           patch=${PARTS[2]:-0}
-          
+
           new_minor=$((minor + 1))
           new_version="$major.$new_minor.0"
-          
+
           if git rev-parse "$new_version" >/dev/null 2>&1; then
             echo "::error::Version $new_version already exists"
             exit 1
           fi
-          
+
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
           echo "New version: $new_version"
 
@@ -53,19 +48,19 @@ jobs:
           latest_tag="${{ env.LATEST_TAG }}"
           new_version="${{ env.NEW_VERSION }}"
           repo_url="https://github.com/${{ github.repository }}"
-          
+
           if [ "$latest_tag" = "0.1.0" ]; then
             commits=$(git log --format="- %s by @%an in %h" | sed '/^$/d')
           else
             commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
           fi
-          
+
           {
             echo "RELEASE_BODY<<EOF"
             echo "## What's Changed"
             echo "$commits"
             echo ""
-            echo "**Full Changelog**: $latest_tag...$new_version"
+            echo "Full Changelog: [$latest_tag...$new_version]($repo_url/compare/$latest_tag...$new_version)"
             echo "EOF"
           } >> $GITHUB_ENV
 
@@ -73,17 +68,12 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if [[ "${{ env.NEW_VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-              git tag "${{ env.NEW_VERSION }}"
-              git push origin "${{ env.NEW_VERSION }}"
-            else
-              echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
-              exit 1
-            fi
+
+          if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            git tag ${{ env.NEW_VERSION }}
+            git push origin ${{ env.NEW_VERSION }}
           else
-            echo "Invalid version format: ${{ env.NEW_VERSION }}"
+            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
             exit 1
           fi
 
