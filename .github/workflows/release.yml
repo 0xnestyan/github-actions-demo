@@ -26,6 +26,11 @@ jobs:
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
+          # Ensure we're working with a valid version number
+          if [[ ! "$latest_tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            latest_tag="0.1.0"
+          fi
+          
           IFS='.' read -ra PARTS <<< "$latest_tag"
           major=${PARTS[0]}
           minor=${PARTS[1]:-0}
@@ -69,11 +74,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            git tag ${{ env.NEW_VERSION }}
-            git push origin ${{ env.NEW_VERSION }}
+          if [[ "${{ env.NEW_VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+              git tag "${{ env.NEW_VERSION }}"
+              git push origin "${{ env.NEW_VERSION }}"
+            else
+              echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
+              exit 1
+            fi
           else
-            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
+            echo "Invalid version format: ${{ env.NEW_VERSION }}"
             exit 1
           fi
 
