@@ -18,7 +18,7 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          latest_tag=$(git tag -l | sort -V | tail -n 1 || echo "0.1.0")
+          latest_tag=$(git tag -l --sort=-v:refname | head -n 1 || echo "0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
           echo "Latest tag: $latest_tag"
 
@@ -34,7 +34,8 @@ jobs:
           new_minor=$((minor + 1))
           new_version="$major.$new_minor.0"
 
-          if git rev-parse "$new_version" >/dev/null 2>&1; then
+          # Ensure new version doesn't already exist
+          if git tag -l | grep -q "^${new_version}$"; then
             echo "::error::Version $new_version already exists"
             exit 1
           fi
@@ -60,7 +61,7 @@ jobs:
             echo "## What's Changed"
             echo "$commits"
             echo ""
-            echo "Full Changelog: [$latest_tag...$new_version]($repo_url/compare/$latest_tag...$new_version)"
+            echo "[Full Changelog]($repo_url/compare/$latest_tag...$new_version)"
             echo "EOF"
           } >> $GITHUB_ENV
 
@@ -69,13 +70,8 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            git tag ${{ env.NEW_VERSION }}
-            git push origin ${{ env.NEW_VERSION }}
-          else
-            echo "Tag ${{ env.NEW_VERSION }} already exists, skipping tag creation"
-            exit 1
-          fi
+          git tag ${{ env.NEW_VERSION }}
+          git push origin ${{ env.NEW_VERSION }}
 
       - name: Create GitHub Release
         if: success()
