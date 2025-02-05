@@ -13,13 +13,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          ref: development
 
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          # Get all tags (both with and without v prefix)
-          latest_tag=$(git tag -l | sort -V | tail -n 1 || echo "0.1.0")
+          # Get all tags and sort by version number
+          latest_tag=$(git tag -l | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || echo "0.1.0")
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
           echo "Latest tag: $latest_tag"
 
@@ -27,7 +27,7 @@ jobs:
         id: calculate_version
         run: |
           latest_tag="${{ env.LATEST_TAG }}"
-          # Split into parts without assuming v prefix
+          # Split into parts
           IFS='.' read -ra PARTS <<< "$latest_tag"
           major=${PARTS[0]}
           minor=${PARTS[1]:-0}
@@ -54,17 +54,20 @@ jobs:
           repo_url="https://github.com/${{ github.repository }}"
 
           if [ "$latest_tag" = "0.1.0" ]; then
+            # If no previous tag exists, use all commits
             commits=$(git log --format="- %s by @%an in %h" | sed '/^$/d')
           else
+            # Get commits since the latest tag
             commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
           fi
 
+          # Write to GITHUB_ENV with proper multiline handling
           {
             echo "RELEASE_BODY<<EOF"
             echo "## What's Changed"
             echo "$commits"
             echo ""
-            echo "Full Changelog: $latest_tag...$new_version"
+            echo "Full Changelog: [$latest_tag...$new_version]($repo_url/compare/$latest_tag...$new_version)"
             echo "EOF"
           } >> $GITHUB_ENV
 
@@ -73,6 +76,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Double check the tag doesn't exist before creating it
           if ! git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
             git tag ${{ env.NEW_VERSION }}
             git push origin ${{ env.NEW_VERSION }}
@@ -86,7 +90,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_VERSION }}
-          name: "v.${{ env.NEW_VERSION }}"
+          name: v.${{ env.NEW_VERSION }}
           body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: false
