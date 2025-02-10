@@ -57,18 +57,21 @@ jobs:
           new_version="${{ env.NEW_VERSION_TAG }}"
           repo_url="https://github.com/${{ github.repository }}"
           
+          generate_commit_line() {
+            while IFS='|' read -r commit_hash subject author_email; do
+              # Extract username from email (assuming GitHub email format)
+              username=$(echo "$author_email" | sed -E 's/.*<(.+)@.*/\1/')
+              echo "- $subject by @$username in ${commit_hash:0:7}"
+            done
+          }
+          
           if [ "$latest_tag" = "0.1.0" ]; then
             # If no previous tag exists, use all commits
-            commits=$(git log --format="- %s by @%an in %h" | sed '/^$/d')
+            commits=$(git log --format="%H|%s|%aE" | generate_commit_line)
           else
             # Get commits since the latest tag
-            commits=$(git log $latest_tag..HEAD --format="- %s by @%an in %h" | sed '/^$/d')
+            commits=$(git log $latest_tag..HEAD --format="%H|%s|%aE" | generate_commit_line)
           fi
-          
-          # Extract version numbers for changelog link (remove any extra dots)
-          latest_version="${latest_tag#v}"
-          latest_version="${latest_version#.}"
-          new_version_number="${new_version#v}"
           
           # Write to GITHUB_ENV with proper multiline handling
           {
@@ -76,7 +79,7 @@ jobs:
             echo "## What's Changed"
             echo "$commits"
             echo ""
-            echo "**Full Changelog**: [$latest_version...$new_version_number]($repo_url/compare/$latest_tag...$new_version)"
+            echo "**Full Changelog**: [$latest_tag...$new_version]($repo_url/compare/$latest_tag...$new_version)"
             echo "EOF"
           } >> $GITHUB_ENV
 
